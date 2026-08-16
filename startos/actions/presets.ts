@@ -1,8 +1,6 @@
-import type { I18nKey } from '../i18n/dictionaries/default'
-
 export type ModelPreset = {
   id: string
-  displayName: I18nKey
+  displayName: string
   /** HF repo, optionally with `:<quant>` suffix understood by `llama-server -hf`. */
   hfRepo: string
   /** Optional explicit GGUF filename — overrides the implicit quant tag. */

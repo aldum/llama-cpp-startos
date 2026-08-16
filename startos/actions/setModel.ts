@@ -68,7 +68,7 @@ const allVariants: Record<AllVariantIds, { name: string; spec: any }> = {
   ...Object.fromEntries(
     models.map((m) => [
       m.id,
-      { name: i18n(m.displayName), spec: InputSpec.of({}) },
+      { name: m.displayName, spec: InputSpec.of({}) },
     ]),
   ),
   custom: customVariant,

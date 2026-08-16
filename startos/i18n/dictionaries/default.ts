@@ -29,17 +29,6 @@ const dict = {
   'Additional `llama-server` flags, space-separated. Advanced — split on whitespace, so quoted values will not survive.': 20,
   Custom: 21,
 
-  // model preset labels
-  'Llama 3.2 1B Instruct': 22,
-  'Llama 3.2 3B Instruct': 23,
-  'Qwen2.5 7B Instruct': 24,
-  'Llama 3.1 8B Instruct': 25,
-  'Qwen2.5 14B Instruct': 26,
-  'Qwen3 30B-A3B Instruct': 27,
-  'Mistral Small 3.2 24B Instruct': 28,
-  'Qwen2.5 32B Instruct': 29,
-  'Llama 3.3 70B Instruct': 30,
-
   // actions/deleteModelCache.ts
   'Delete Model Cache': 31,
   'Remove a downloaded GGUF model from the cache to free up disk space': 32,
