@@ -47,8 +47,10 @@ curl -s -u admin:<your-ui-password> <your-interface-url>/v1/chat/completions \
 - **Set Model** — switch to a different preset or custom GGUF. The form opens with your current selection already filled in, so you can change one setting without re-entering the rest. The service restarts with the new weights; uncached models download on this restart.
 - **Set UI Password** — generate a new web UI password (username stays `admin`). Use it for first-time setup or to rotate the password later.
 - **Delete Model Cache** — remove a specific filename from the cache (e.g. `Qwen2.5-7B-Instruct-Q4_K_M.gguf`) to reclaim disk space. A deleted model will be re-downloaded if you select it again.
+- **Enable Local Access** — opens an additional, **unauthenticated** interface (`llama.cpp Local`) for clients that cannot send basic-auth credentials. It is disabled by default; once enabled, LAN addresses are reachable out of the box and public addresses stay off. Keep it off any network you would not trust with an open model.
 
 ## Limitations
 
 - **One model at a time.** Switching models restarts the service.
 - **Models are large.** A 70B Q4 file is ~40 GB; even small models are several gigabytes. Confirm free disk before selecting a preset.
+- **The local interface has no authentication.** If you enable it, anyone on a network that can reach it can use your model — treat it like an open endpoint and keep it local.

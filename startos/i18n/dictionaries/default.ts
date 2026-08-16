@@ -44,6 +44,13 @@ const dict = {
   // init/initializeService.ts
   'Generate a password to log in to the llama.cpp web UI': 39,
   'Select which AI model llama.cpp should serve': 40,
+
+  // interfaces.ts (local) + actions/enableLocalAccess.ts
+  'llama.cpp Local': 41,
+  'Unauthenticated access for local clients': 42,
+  'Enable Local Access': 43,
+  'Opens the unauthenticated local interface. LAN addresses are reachable by default; public addresses stay off unless you enable them.': 44,
+  'Nothing authenticates this interface. Anyone who can reach it can use your model.': 45,
 } as const
 
 /**

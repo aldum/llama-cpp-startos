@@ -66,19 +66,20 @@ Models are the bulk of it — a single quantized model runs from roughly one to 
 
 ## File Models
 
-One model. Two of its keys decide whether the service can run at all; the third only exists so a form can remember what you last told it.
+One model. Two of its keys decide whether the service can run at all; a third switches the unauthenticated local interface on; the last only exists so a form can remember what you last told it.
 
 | File         | Format | Modelled                | Written by                                |
 | ------------ | ------ | ----------------------- | ----------------------------------------- |
-| `store.json` | JSON   | Yes — `FileHelper.json` | The Set Model and Set UI Password actions |
+| `store.json` | JSON   | Yes — `FileHelper.json` | The Set Model, Set UI Password, and Enable Local Access actions |
 
 | Key              | Notes                                                                                           |
 | ---------------- | ----------------------------------------------------------------------------------------------- |
 | `serveArgs`      | The full argument list handed to `llama-server`, composed by the Set Model action               |
 | `uiPassword`     | The password for the proxy's basic auth; the username is always `admin`                         |
+| `localAccess`    | Whether the unauthenticated local interface is declared; absent until enabled                    |
 | `modelSelection` | What the Set Model form last submitted, so it can be prefilled next time — read by nothing else |
 
-Nothing else writes the file, and neither `serveArgs` nor `uiPassword` is defaulted — both are absent until you run their action, and each absence raises a task.
+Nothing else writes the file. `serveArgs` and `uiPassword` are absent until you run their action, and each absence raises a task; `localAccess` is likewise absent until enabled, but its absence is the healthy default rather than a task.
 
 `modelSelection` holds the chosen `selection` plus, when Custom was chosen, a `custom` object carrying that variant's fields; picking a preset clears `custom`. The daemon never reads it, so it cannot disagree with `serveArgs` about what is actually running — at worst it prefills a form with a stale answer.
 
@@ -102,10 +103,13 @@ One interface, serving both the OpenAI-compatible API and llama.cpp's built-in c
 | Interface        | Id    | Type | Port | Description                          |
 | ---------------- | ----- | ---- | ---- | ------------------------------------ |
 | llama.cpp Server | `api` | ui   | 8080 | The API and the built-in chat client |
+| llama.cpp Local  | `local` | ui | 8080 | Ungated local access; opt-in, off by default |
 
 **Authentication is added by StartOS, not by llama.cpp.** The server itself runs keyless; the binding declares HTTP basic auth at the edge, with the username `admin` and the password from `store.json`. Until a password is set the binding is configured with an empty one — which never serves anything, because the service is blocked from starting by a `critical` task at the same time.
 
 An OpenAI-compatible client therefore needs those basic-auth credentials as well as whatever it would normally send.
+
+**The local interface has no authentication at all.** `llama.cpp Local` fronts the same server from a second host, with nothing between the client and `llama-server`; LAN addresses are reachable by default and public ones stay off unless enabled. It is declared only while `localAccess` is true, brought up by the **Enable Local Access** action — run it only where a client genuinely cannot send credentials, and keep it off any address you would not trust with an open model.
 
 ## Installation and First-Run Flow
 
@@ -120,7 +124,7 @@ The first start after choosing a model **downloads it**, which is why the health
 
 ## Actions
 
-Three actions, all user-facing.
+Four actions, all user-facing.
 
 ### Set Model
 
@@ -149,6 +153,15 @@ Removes one downloaded model file to reclaim disk.
 - **What it changes:** deletes the named file from the model cache. Path separators are stripped from the input, so it cannot reach outside that directory.
 - **Repeat safety:** idempotent; deleting a file that is not there succeeds.
 - **Not reversible**, but not destructive either — the model is re-downloaded if selected again.
+
+### Enable Local Access
+
+Brings up the unauthenticated `llama.cpp Local` interface.
+
+- **What it changes:** `localAccess` in `store.json`, and through it the declaration of the local binding and interface.
+- **Cost:** seconds; no daemon restart — the local interface fronts the same already-running server.
+- **Repeat safety:** idempotent.
+- **Tradeoff:** nothing authenticates the interface; anyone who can reach it can use the model.
 
 ## Tasks
 
@@ -184,7 +197,7 @@ The `main` volume is backed up — `sdk.Backups.ofVolumes('main')` — with one 
 ## Limitations and Differences
 
 1. **Two settings are required before the service does anything**, and each is enforced by a blocking task rather than defaulted.
-2. **Authentication is the reverse proxy's, not llama.cpp's.** Every client, including API clients, must send basic-auth credentials.
+2. **Authentication is the reverse proxy's, not llama.cpp's.** Every client of the `api` interface must send basic-auth credentials; the opt-in `local` interface, once enabled, has none.
 3. **Which accelerator variant you get is decided by StartOS**, from the hardware present; it is not a setting.
 4. **Integrated AMD graphics fall back to the generic CPU build.** ROCm is matched only for discrete cards.
 5. **The Vulkan variant matches Intel GPUs only**, on the `i915` driver.
@@ -218,10 +231,12 @@ startos_managed_env_vars:
 dependencies: []
 interfaces:
   api: { type: ui, port: 8080 } # basic auth enforced at the edge, username "admin"
+  local: { type: ui, port: 8080 } # unauthenticated; declared only while localAccess is true
 actions:
   - set-model
   - set-ui-password
   - delete-model-cache
+  - enable-local-access
 tasks:
   - { action: set-ui-password, severity: critical }
   - { action: set-model, severity: critical }

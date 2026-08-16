@@ -3,7 +3,8 @@ import { sdk } from '../sdk'
 
 const shape = z.object({
   serveArgs: z.array(z.string()).optional().catch(undefined),
-  uiPassword: z.string().optional().catch(undefined),
+    uiPassword: z.string().optional().catch(undefined),
+    localAccess: z.boolean().optional().catch(undefined),
   modelSelection: z
     .object({
       selection: z.string(),
