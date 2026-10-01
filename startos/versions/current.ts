@@ -3,8 +3,8 @@ import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 // One source of truth for the upstream pin: the package version and the build
 // identifiers in the release notes all derive from these literals, so a bump
 // cannot desync the version from the build.
-const buildNumber = '11011'
-const previousBuildNumber = '10975'
+const buildNumber = '11277'
+const previousBuildNumber = '11151'
 const upstreamBuild = `b${buildNumber}`
 const previousBuild = `b${previousBuildNumber}`
 const compareUrl = `https://github.com/ggml-org/llama.cpp/compare/${previousBuild}...${upstreamBuild}`
@@ -12,7 +12,7 @@ const compareUrl = `https://github.com/ggml-org/llama.cpp/compare/${previousBuil
 export const current = VersionInfo.of({
   version: `1.0.${buildNumber}:0`,
   releaseNotes: {
-    en_US: `Updated llama.cpp to build ${upstreamBuild}. Adds sparse Flash Attention on Vulkan, AllReduce on ROCm, broader CUDA row-reduction support, and HrmText model support. Improves automatic context sizing, AMD MoE performance, and Qwen3 Coder reasoning output. Fixes Vulkan sorting and matrix multiplication, RPC cache invalidation, and RPC activation transfers filling the worker cache during multi-node inference.
+    en_US: `Updated llama.cpp to build ${upstreamBuild}. Improves Vulkan performance, Qwen3 Coder reasoning, and ROCm AllReduce; broadens CUDA row-reduction support and HrmText model compatibility. Enhances automatic context sizing, AMD MoE performance, and Qwen3 Coder output. Fixes Vulkan sorting and matrix multiplication, RPC cache invalidation, and RPC activation transfers filling the worker cache during multi-node inference.
 
 Full commit range: ${compareUrl}`,
     es_ES: `Actualiza llama.cpp a la compilación ${upstreamBuild}. Añade atención Flash dispersa con Vulkan, AllReduce con ROCm, una mayor compatibilidad con reducciones de filas en CUDA y modelos HrmText. Mejora el dimensionamiento automático del contexto, el rendimiento MoE de AMD y la salida de razonamiento de Qwen3 Coder. Corrige la ordenación y la multiplicación de matrices con Vulkan, la invalidación de la caché RPC y las transferencias de activaciones RPC que llenaban la caché del nodo de trabajo durante la inferencia multinodo.
