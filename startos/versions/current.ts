@@ -3,8 +3,8 @@ import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 // One source of truth for the upstream pin: the package version and the build
 // identifiers in the release notes all derive from these literals, so a bump
 // cannot desync the version from the build.
-const buildNumber = '11011'
-const previousBuildNumber = '10975'
+const buildNumber = '11277'
+const previousBuildNumber = '11151'
 const upstreamBuild = `b${buildNumber}`
 const previousBuild = `b${previousBuildNumber}`
 const compareUrl = `https://github.com/ggml-org/llama.cpp/compare/${previousBuild}...${upstreamBuild}`
