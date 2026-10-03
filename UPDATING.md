@@ -53,6 +53,27 @@ If any variant is `MISSING`, step down to the next build the tag-list query retu
 >   "https://ghcr.io/v2/ggml-org/llama.cpp/manifests/server-${BUILD}" | jq -r '.errors[0].code // "ok"'
 > ```
 
+## Automation
+
+`scripts/check-update.mjs` (no third-party deps, node ≥ 18) runs the above procedure unattended via a daily crontab entry:
+
+```sh
+npm run update:check   # dry run: detect and print what it would do
+npm run update:bump    # branch chore/bump-bNNNN, bump, tsc-check, commit, push to origin, print the PR link
+```
+
+On each run it: reads the pin from `startos/manifest/index.ts`; lists newer `server-bNNNN` tags on GHCR; verifies all four variant manifests, stepping down past partially-published builds; drafts `en_US` release notes from the upstream commit range (other locales are dropped — add translations back when merging); runs `tsc --noEmit`; pushes `chore/bump-bNNNN` to the fork and prints a PR-creation link.
+
+It skips safely (exit 0, logged) when the pin is current, the working tree is dirty, or the bump branch already exists on origin. Failure paths (edit regression, failed typecheck) revert and restore the previous branch.
+
+What needs a human at PR time: translations for the release notes, skimming the commit range for `llama-server` flag changes that invalidate `startos/actions/presets.ts`, and confirming the five-locale note text if you restore it.
+
+Cron entry (daily 05:10, appending to `~/.local/state/llama-cpp-startos/update.log`):
+
+```
+10 5 * * * node /mnt/dev/start9/start9-workspace/llama-cpp-startos/scripts/check-update.mjs >> $HOME/.local/state/llama-cpp-startos/update.log 2>&1
+```
+
 ## Applying the bump
 
 1. Update `const upstreamBuild` in `startos/manifest/index.ts` to the verified-published build tag (e.g. `'b9982'`) — the one you confirmed all four variants for above, not merely the newest release.

@@ -3,7 +3,9 @@
   "scripts": {
     "build": "rm -rf ./javascript && ncc build startos/index.ts -o ./javascript",
     "prettier": "prettier --write startos",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "update:check": "node scripts/check-update.mjs --dry-run",
+    "update:bump": "node scripts/check-update.mjs"
   },
   "dependencies": {
     "@start9labs/start-sdk": "2.0.9"
