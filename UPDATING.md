@@ -59,12 +59,14 @@ If any variant is `MISSING`, step down to the next build the tag-list query retu
 
 ```sh
 npm run update:check   # dry run: detect and print what it would do
-npm run update:bump    # branch chore/bump-bNNNN, bump, tsc-check, commit, push to origin, print the PR link
+npm run update:bump    # bump, tsc-check, land a jj change, push a bookmark to origin, print the PR link
 ```
 
-On each run it: reads the pin from `startos/manifest/index.ts`; lists newer `server-bNNNN` tags on GHCR; verifies all four variant manifests, stepping down past partially-published builds; drafts `en_US` release notes from the upstream commit range (other locales are dropped — add translations back when merging); runs `tsc --noEmit`; pushes `chore/bump-bNNNN` to the fork and prints a PR-creation link.
+On each run it: reads the pin from `startos/manifest/index.ts`; lists newer `server-bNNNN` tags on GHCR; verifies all four variant manifests, stepping down past partially-published builds; drafts `en_US` release notes from the upstream commit range (other locales are dropped — add translations back when merging); runs `tsc --noEmit`; sets the bookmark `chore/bump-bNNNN` on the new change, pushes it to the fork, and prints a PR-creation link.
 
-It skips safely (exit 0, logged) when the pin is current, the working tree is dirty, or the bump branch already exists on origin. Failure paths (edit regression, failed typecheck) revert and restore the previous branch.
+This repo is colocated with **jj**, which owns the working copy, so the updater speaks jj rather than git: it stacks the bump onto `@-`, writes the edits into the working-copy commit `@`, and lands them with `jj describe` / `jj new` / `jj bookmark set` / `jj git push`. It never moves the git HEAD — jj leaves that detached, which is why an earlier git-based version of this script refused to run at all and failed every morning.
+
+It skips safely (exit 0, logged) when the pin is current, the working copy has uncommitted changes, or the bookmark already exists on origin. Untracked files are logged and ignored rather than treated as dirty — one stray file must not stall upstream bumps for days. Failure paths (edit regression, failed typecheck) revert with `jj restore`, leaving the working copy empty as they found it.
 
 What needs a human at PR time: translations for the release notes, skimming the commit range for `llama-server` flag changes that invalidate `startos/actions/presets.ts`, and confirming the five-locale note text if you restore it.
 

@@ -11,7 +11,14 @@
 // images), then verify each of the four variant manifests, stepping down until
 // one passes. See the "Automation" section of UPDATING.md.
 //
-// Requires node >= 18. No third-party dependencies. Intended to run from cron.
+// This repo is colocated with jj, and jj owns the working copy: the edits go
+// into the working-copy commit @, and the bump is landed with
+// `jj describe` / `jj new` / `jj bookmark set`. The git HEAD is never moved —
+// jj leaves it detached, which is why an earlier git-based version of this
+// script refused to run at all.
+//
+// Requires node >= 18, and jj on PATH. No third-party dependencies.
+// Intended to run from cron.
 
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
@@ -29,8 +36,7 @@ const MANIFEST = path.join(ROOT, 'startos/manifest/index.ts')
 const CURRENT = path.join(ROOT, 'startos/versions/current.ts')
 const VARIANT_PREFIXES = ['', 'cuda-', 'rocm-', 'vulkan-'] // keys into VARIANT_LABELS
 const VARIANT_LABELS = ['', 'CUDA', 'ROCm', 'Vulkan']
-const COMMIT_NAME = 'llama-cpp-startos updater'
-const COMMIT_EMAIL = 'updater@local'
+const REMOTE = 'origin'
 
 const log = msg => console.log(`[check-update] ${msg}`)
 const die = msg => {
@@ -39,8 +45,33 @@ const die = msg => {
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms))
 
+// git is used read-only, to ask the remote what it already has.
 function git(...args) {
   return execFileSync('git', args, { cwd: ROOT, encoding: 'utf8' }).trim()
+}
+
+function jj(...args) {
+  return execFileSync('jj', ['--color', 'never', '--no-pager', ...args], {
+    cwd: ROOT,
+    encoding: 'utf8',
+  }).trim()
+}
+
+const revsetField = (revset, template) => jj('log', '-r', revset, '--no-graph', '-T', template)
+
+// Edits to files that already exist in the parent commit. Additions are
+// ignored — jj counts a stray untracked file as an added file and would call
+// the working copy dirty, and one dropped file must not stall upstream bumps
+// for days. They are logged rather than silently swallowed.
+function dirtyChanges() {
+  return jj('diff', '--summary')
+    .split('\n')
+    .filter(Boolean)
+    .filter(line => !line.startsWith('A '))
+}
+
+function jjRoot() {
+  return fs.realpathSync(jj('root'))
 }
 
 async function fetchJson(url, { headers = {}, tries = 2 } = {}) {
@@ -153,14 +184,26 @@ async function draftReleaseNotes(prev, next) {
 }
 
 async function main() {
+  if (!fs.existsSync(path.join(ROOT, '.jj'))) {
+    die(`${ROOT} is not a jj repository — this script drives the bump through jj`)
+  }
+  if (jjRoot() !== fs.realpathSync(ROOT)) {
+    die(`${ROOT} is inside a jj repository rooted at ${jjRoot()}; run it from the repo root`)
+  }
+
   const current = readCurrentPin()
-  const head = git('rev-parse', '--abbrev-ref', 'HEAD')
-  if (head === 'HEAD') die('detached HEAD; refusing to branch from an unknown base')
-  const dirty = git('status', '--porcelain', '--untracked-files=no')
-  if (dirty) {
-    log(`working tree dirty on ${head}; skipping this run`)
+
+  // The bump stacks onto @- — jj's "where you are" — and lands in @.
+  const baseId = revsetField('@-', 'commit_id')
+  const baseDesc = revsetField('@-', 'description.first_line()')
+
+  const dirty = dirtyChanges()
+  if (dirty.length) {
+    log(`working copy has uncommitted changes; skipping this run:\n  ${dirty.join('\n  ')}`)
     return
   }
+  const added = jj('diff', '--summary').split('\n').filter(l => l.startsWith('A '))
+  if (added.length) log(`ignoring ${added.length} untracked file(s) in the working copy`)
 
   const next = await newestPublishedBuild(current)
   if (!next) {
@@ -170,24 +213,23 @@ async function main() {
   log(`newest fully-published build: b${next} (current pin b${current})`)
 
   const branch = `chore/bump-b${next}`
-  const remoteBranch = git('ls-remote', '--heads', 'origin', branch)
+  const remoteBranch = git('ls-remote', '--heads', REMOTE, branch)
   if (remoteBranch) {
-    log(`branch ${branch} already exists on origin; a PR for this build was likely already opened — skipping`)
+    log(`bookmark ${branch} already exists on ${REMOTE}; a PR for this build was likely already opened — skipping`)
     return
   }
 
   const { notes, compareUrl } = await draftReleaseNotes(current, next)
   if (DRY_RUN) {
-    log(`[dry-run] would branch ${branch} from ${head} and:`)
+    log(`[dry-run] would land a new change on @- (${baseId.slice(0, 7)} ${baseDesc}) and:`)
     log(`[dry-run]   manifest/index.ts  upstreamBuild 'b${current}' → 'b${next}'`)
     log(`[dry-run]   versions/current.ts buildNumber ${current} → ${next}, previousBuildNumber → ${current}`)
     log(`[dry-run]   en_US notes: ${notes}`)
     log(`[dry-run]   compare URL: ${compareUrl}`)
+    log(`[dry-run]   bookmark ${branch} set on the new change and pushed to ${REMOTE}`)
     log('[dry-run]   other release-note locales would be dropped — add translations at merge time')
     return
   }
-
-  git('checkout', '-B', branch)
 
   const apply = () => {
     const manifest = fs.readFileSync(MANIFEST, 'utf8')
@@ -217,10 +259,15 @@ async function main() {
     fs.writeFileSync(CURRENT, currentTs)
   }
 
+  const commitMsg =
+    `chore: bump llama.cpp to b${next}; 1.0.${current}:0 → 1.0.${next}:0`
+
+  // The edits live in the working-copy commit @; `jj restore` drops them and
+  // leaves @ empty again, which is all the cleanup a failure needs.
   try {
     apply()
   } catch (err) {
-    git('checkout', '--', 'startos')
+    jj('restore')
     die(`${err.message}; reverted edits`)
   }
 
@@ -231,20 +278,25 @@ async function main() {
     })
   } catch (err) {
     console.error(String(err.stdout ?? '') + String(err.stderr ?? ''))
-    git('checkout', '--', 'startos')
-    git('checkout', head)
-    git('branch', '-D', branch)
+    jj('restore')
     die('typecheck failed after the bump; reverted to the pre-bump state')
   }
 
-  const commitMsg =
-    `chore: bump llama.cpp to b${next}; 1.0.${current}:0 → 1.0.${next}:0`
-  git('-c', `user.name=${COMMIT_NAME}`, '-c', `user.email=${COMMIT_EMAIL}`,
-    'commit', '--no-verify', '-am', commitMsg)
-  git('push', 'origin', `HEAD:refs/heads/${branch}`)
-  log(`pushed ${branch} to origin (base for review: ${head})`)
+  // `jj new` seals @ as the bump and leaves a clean empty working copy on top,
+  // so the repo ends up in the same shape this script found it in.
+  jj('describe', '-m', commitMsg)
+  jj('new')
+  jj('bookmark', 'set', branch, '-r', '@-')
 
-  git('checkout', head)
+  try {
+    jj('git', 'push', '--remote', REMOTE, '--bookmark', branch)
+  } catch (err) {
+    die(
+      `pushed nothing; ${branch} is set locally at @- — ` +
+        `rerun \`jj git push --remote ${REMOTE} --bookmark ${branch}\``,
+    )
+  }
+  log(`pushed ${branch} to ${REMOTE} (stacked on ${baseId.slice(0, 7)} ${baseDesc})`)
 
   const prUrl = `https://github.com/${PR_BASE_REPO}/compare/master...${PR_FORK_OWNER}:${branch}?expand=1`
   log(`open the PR: ${prUrl}`)
