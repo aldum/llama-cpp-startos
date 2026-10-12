@@ -13,9 +13,11 @@
 //
 // This repo is colocated with jj, and jj owns the working copy: the edits go
 // into the working-copy commit @, and the bump is landed with
-// `jj describe` / `jj new` / `jj bookmark set`. The git HEAD is never moved —
-// jj leaves it detached, which is why an earlier git-based version of this
-// script refused to run at all.
+// `jj describe` / `jj new` / `jj bookmark set`. The git HEAD is never read or
+// moved — jj leaves it detached, which is this repo's normal resting state, so
+// a detached HEAD is not a problem. An earlier git-based version did read the
+// HEAD and refused to run every morning; basing the bump on jj's @- instead is
+// what removes that failure.
 //
 // Requires node >= 18, and jj on PATH. No third-party dependencies.
 // Intended to run from cron.
