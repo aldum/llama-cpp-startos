@@ -1,15 +1,15 @@
 import { FileHelper, z } from '@start9labs/start-sdk'
 import { sdk } from '../sdk'
 
-const shape = z.object({
+const shape = z.looseObject({
   serveArgs: z.array(z.string()).optional().catch(undefined),
-    uiPassword: z.string().optional().catch(undefined),
-    localAccess: z.boolean().optional().catch(undefined),
+  uiPassword: z.string().optional().catch(undefined),
+  localAccess: z.boolean().optional().catch(undefined),
   modelSelection: z
-    .object({
+    .looseObject({
       selection: z.string(),
       custom: z
-        .object({
+        .looseObject({
           hfRepo: z.string(),
           hfFile: z.string().optional(),
           ctx: z.number(),

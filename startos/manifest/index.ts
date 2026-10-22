@@ -99,5 +99,4 @@ export const manifest = setupManifest({
   hardwareRequirements: {
     device: [...(hwDevices[variant as keyof typeof hwDevices] ?? [])],
   },
-  dependencies: {},
 })
